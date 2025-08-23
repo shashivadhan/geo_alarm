@@ -105,29 +105,22 @@ function drawDestCircle() {
 }
 
 function updateUserMarker(lat, lng, accuracy) {
-  // Green dot for user location
+  // Green glowing circle for user location
   if (!userCircle) {
     userCircle = L.circleMarker([lat, lng], {
-      radius: 8,
+      radius: 9,
       color: "#16a34a",      // green border
       fillColor: "#22c55e",  // bright green fill
-      fillOpacity: 0.9
+      fillOpacity: 0.9,
+      className: "user-location"
     }).addTo(map);
   } else {
     userCircle.setLatLng([lat, lng]);
   }
 
-  // Still keep a thin marker if you want title popup
-  if (!userMarker) {
-    userMarker = L.marker([lat, lng], { title: "You" });
-    // not adding marker, because circle already shows position
-  } else {
-    userMarker.setLatLng([lat, lng]);
-  }
-
-  // Accuracy circle
+  // Accuracy circle (thin outline)
   if (accuracy) {
     if (accuracyCircle) accuracyCircle.setLatLng([lat,lng]).setRadius(accuracy);
-    else accuracyCircle = L.circle([lat,lng], { radius: accuracy, color:"#94a3b8", fillOpacity:.1 }).addTo(map);
+    else accuracyCircle = L.circle([lat,lng], { radius: accuracy, color:"#94a3b8", weight:1, fillOpacity:.07 }).addTo(map);
   }
 }
