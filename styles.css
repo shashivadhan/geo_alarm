@@ -1,0 +1,79 @@
+/* Basic, mobile-first UI */
+:root{
+  --bg: #0b1220;
+  --panel: #0f172a;
+  --muted: #94a3b8;
+  --text: #e2e8f0;
+  --accent: #0ea5e9;
+  --danger: #ef4444;
+  --ok: #22c55e;
+  --shadow: 0 10px 30px rgba(0,0,0,.35);
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  color:var(--text);
+  background:linear-gradient(180deg,#0b1220,#0b1220 60%,#0a1020);
+}
+
+.app-header{
+  position:sticky; top:0; z-index:1000;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:10px 14px; background:rgba(11,18,32,.8); backdrop-filter: blur(8px);
+  border-bottom:1px solid rgba(255,255,255,.06);
+}
+
+.brand{display:flex; gap:10px; align-items:center}
+.logo{font-size:20px}
+.title{font-weight:700; letter-spacing:.4px}
+
+.layout{
+  display:grid;
+  grid-template-rows: 60vh auto;
+}
+
+#map{ width:100%; height:100%; box-shadow:var(--shadow) }
+.panel{
+  background:var(--panel);
+  padding:14px;
+  border-top:1px solid rgba(255,255,255,.06);
+  box-shadow:var(--shadow);
+}
+
+.row{ margin:10px 0 }
+.row.inline{ display:flex; align-items:center; gap:10px }
+.grid .row + .row{ margin-top:14px }
+.help{ color:var(--muted); font-size:.9rem }
+
+input[type="range"]{ width:100% }
+input[type="number"]{ width:100%; margin-top:6px; padding:8px; border-radius:10px; border:1px solid #283347; background:#0c1629; color:var(--text) }
+input[type="file"]{ width:100% }
+
+.buttons{ display:flex; gap:10px; margin-top:12px }
+.btn{
+  border:none; padding:12px 14px; border-radius:12px; cursor:pointer;
+  background:#1e293b; color:var(--text); box-shadow:var(--shadow); font-weight:600
+}
+.btn.ghost{ background:transparent; border:1px solid #1e293b }
+.btn.primary{ background:var(--accent) }
+.btn.danger{ background:var(--danger) }
+.btn:disabled{ opacity:.6; cursor:not-allowed }
+
+.status{
+  margin-top:12px; padding:12px; border-radius:12px; background:#0c1629; border:1px solid #283347;
+}
+#insideText{ color:var(--danger) }
+#insideText.yes{ color:var(--ok) }
+
+/* Map control z-index fix */
+.leaflet-top, .leaflet-bottom { z-index: 500; }
+
+/* Larger screens */
+@media(min-width:900px){
+  .layout{ grid-template-columns: 2fr 1fr; grid-template-rows: auto; gap:16px; padding:16px }
+  #map{ height:82vh; border-radius:16px }
+  .panel{ height:82vh; border-radius:16px; overflow:auto }
+}
