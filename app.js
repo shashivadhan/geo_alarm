@@ -1,126 +1,146 @@
-// Location Alarm App (Leaflet + Geolocation + Vibration + Audio + PWA)
-
-let map, userMarker, userCircle, accuracyCircle, destMarker, destCircle;
-let watchId = null;
-let armed = false;
-let triggered = false;
-let vibrateTimer = null;
-let wakeLock = null;
-
-const state = {
-  radius: parseInt(localStorage.getItem("radius") || "500", 10),
-  dest: null, // {lat, lng}
-};
+let map;
+let userMarker;
+let destinationMarker;
+let radiusCircle;
+let watchId;
 
 const els = {
+  gpsStatus: document.getElementById("gps-status"),
+  distance: document.getElementById("distance"),
+  inside: document.getElementById("inside"),
   radius: document.getElementById("radius"),
-  radiusNum: document.getElementById("radiusNum"),
-  armBtn: document.getElementById("armBtn"),
-  stopBtn: document.getElementById("stopBtn"),
-  gpsStatus: document.getElementById("gpsStatus"),
-  distanceText: document.getElementById("distanceText"),
-  insideText: document.getElementById("insideText"),
-  audioFile: document.getElementById("audioFile"),
-  alarmAudio: document.getElementById("alarmAudio"),
-  wakeLockToggle: document.getElementById("wakeLockToggle"),
-  installBtn: document.getElementById("installBtn"),
+  armButton: document.getElementById("arm"),
+  stopButton: document.getElementById("stop"),
 };
 
-// Sync radius inputs
-els.radius.value = state.radius;
-els.radiusNum.value = state.radius;
-["change","input"].forEach(ev => {
-  els.radius.addEventListener(ev, () => {
-    state.radius = parseInt(els.radius.value, 10);
-    els.radiusNum.value = state.radius;
-    localStorage.setItem("radius", String(state.radius));
-    drawDestCircle();
-  });
-  els.radiusNum.addEventListener(ev, () => {
-    state.radius = Math.max(50, Math.min(5000, parseInt(els.radiusNum.value || "500", 10)));
-    els.radius.value = state.radius;
-    localStorage.setItem("radius", String(state.radius));
-    drawDestCircle();
-  });
-});
-
-// Init map
 function initMap() {
-  map = L.map("map");
-  const osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> contributors'
-  }).addTo(map);
-
-  // Geocoder (free, OSM Nominatim)
-  const geocoder = L.Control.geocoder({
-    defaultMarkGeocode: false
-  })
-  .on("markgeocode", (e) => {
-    const center = e.geocode.center;
-    setDestination(center.lat, center.lng);
-    map.setView(center, 15);
-  })
-  .addTo(map);
-
-  // Tap to set destination
-  map.on("click", (e) => {
-    setDestination(e.latlng.lat, e.latlng.lng);
+  map = new google.maps.Map(document.getElementById("map"), {
+    center: { lat: 20.5937, lng: 78.9629 }, // India center as default
+    zoom: 5,
+    mapTypeControl: false,
+    fullscreenControl: false,
   });
 
-  // Try current location for map center
-  if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const { latitude, longitude } = pos.coords;
-        map.setView([latitude, longitude], 15);
-        updateUserMarker(latitude, longitude, pos.coords.accuracy);
-      },
-      () => map.setView([20.5937, 78.9629], 5), // India fallback
-      { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
-    );
-  } else {
-    map.setView([20.5937, 78.9629], 5);
-  }
+  // Allow user to tap map to set destination
+  map.addListener("click", (e) => {
+    setDestination(e.latLng);
+  });
+
+  // Start GPS
+  startWatching();
 }
 
-function setDestination(lat, lng) {
-  state.dest = { lat, lng };
-  if (!destMarker) {
-    destMarker = L.marker([lat, lng], { draggable: false }).addTo(map);
-  } else {
-    destMarker.setLatLng([lat, lng]);
+function startWatching() {
+  if (!navigator.geolocation) {
+    els.gpsStatus.textContent = "❌ GPS not supported on this device/browser.";
+    return;
   }
-  drawDestCircle();
-}
 
-function drawDestCircle() {
-  if (!state.dest) return;
-  if (destCircle) destCircle.remove();
-  destCircle = L.circle([state.dest.lat, state.dest.lng], {
-    radius: state.radius,
-    color: "#0ea5e9",
-    fillColor: "#0ea5e9",
-    fillOpacity: 0.15,
-  }).addTo(map);
+  els.gpsStatus.textContent = "⏳ Requesting GPS...";
+
+  watchId = navigator.geolocation.watchPosition(
+    (pos) => {
+      const { latitude, longitude, accuracy } = pos.coords;
+      updateUserMarker(latitude, longitude, accuracy);
+      els.gpsStatus.textContent = `✅ GPS active (±${Math.round(accuracy)}m)`;
+    },
+    (err) => {
+      console.warn("GPS error:", err);
+      if (err.code === 1) {
+        els.gpsStatus.textContent =
+          "❌ Location permission denied. Enable it in browser settings.";
+      } else if (err.code === 2) {
+        els.gpsStatus.textContent = "❌ Position unavailable.";
+      } else if (err.code === 3) {
+        els.gpsStatus.textContent = "❌ GPS timeout, retrying...";
+        setTimeout(startWatching, 3000);
+      }
+    },
+    {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 0,
+    }
+  );
 }
 
 function updateUserMarker(lat, lng, accuracy) {
-  // Green glowing circle for user location
-  if (!userCircle) {
-    userCircle = L.circleMarker([lat, lng], {
-      radius: 9,
-      color: "#16a34a",      // green border
-      fillColor: "#22c55e",  // bright green fill
-      fillOpacity: 0.9,
-      className: "user-location"
-    }).addTo(map);
+  const pos = { lat, lng };
+
+  if (!userMarker) {
+    userMarker = new google.maps.Marker({
+      position: pos,
+      map: map,
+      icon: {
+        path: google.maps.SymbolPath.CIRCLE,
+        scale: 8,
+        fillColor: "green",
+        fillOpacity: 1,
+        strokeWeight: 2,
+        strokeColor: "white",
+      },
+      title: "Your Location",
+    });
+    map.setCenter(pos);
+    map.setZoom(15);
   } else {
-    userCircle.setLatLng([lat, lng]);
+    userMarker.setPosition(pos);
   }
 
-  // Accuracy circle (thin outline)
-  if (accuracy) {
-    if (accuracyCircle) accuracyCircle.setLatLng([lat,lng]).setRadius(accuracy);
-    else accuracyCircle = L.circle([lat,lng], { radius: accuracy, color:"#94a3b8", weight:1, fillOpacity:.07 }).addTo(map);
+  // If destination exists, update distance
+  if (destinationMarker) {
+    const dist = google.maps.geometry.spherical.computeDistanceBetween(
+      new google.maps.LatLng(lat, lng),
+      destinationMarker.getPosition()
+    );
+
+    els.distance.textContent = `${Math.round(dist)} m`;
+    const radius = parseInt(els.radius.value, 10);
+
+    if (dist <= radius) {
+      els.inside.textContent = "Yes ✅";
+      els.inside.style.color = "lime";
+    } else {
+      els.inside.textContent = "No ❌";
+      els.inside.style.color = "red";
+    }
   }
 }
+
+function setDestination(latLng) {
+  if (destinationMarker) destinationMarker.setMap(null);
+  if (radiusCircle) radiusCircle.setMap(null);
+
+  destinationMarker = new google.maps.Marker({
+    position: latLng,
+    map: map,
+    icon: "http://maps.google.com/mapfiles/ms/icons/red-dot.png",
+    title: "Destination",
+  });
+
+  radiusCircle = new google.maps.Circle({
+    strokeColor: "#FF0000",
+    strokeOpacity: 0.6,
+    strokeWeight: 2,
+    fillColor: "#FF0000",
+    fillOpacity: 0.2,
+    map,
+    center: latLng,
+    radius: parseInt(els.radius.value, 10),
+  });
+
+  map.panTo(latLng);
+}
+
+// Arm/Stop alarm handlers
+els.armButton.addEventListener("click", () => {
+  if (!destinationMarker) {
+    alert("Please select a destination on the map.");
+    return;
+  }
+  els.gpsStatus.textContent = "✅ Alarm armed, tracking location...";
+});
+
+els.stopButton.addEventListener("click", () => {
+  els.gpsStatus.textContent = "⏹️ Alarm stopped.";
+});
