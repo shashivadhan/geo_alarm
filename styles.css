@@ -71,6 +71,12 @@ input[type="file"]{ width:100% }
 /* Map control z-index fix */
 .leaflet-top, .leaflet-bottom { z-index: 500; }
 
+/* Glow effect for user marker */
+.user-location {
+  box-shadow: 0 0 15px 4px rgba(34,197,94,0.7);
+  border-radius: 50%;
+}
+
 /* Larger screens */
 @media(min-width:900px){
   .layout{ grid-template-columns: 2fr 1fr; grid-template-rows: auto; gap:16px; padding:16px }
